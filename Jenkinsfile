@@ -1,42 +1,89 @@
 pipeline{
     agent any
+    options {
+  buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '5', numToKeepStr: '5')
+}
+
     tools {
-        maven 'myMaven'
+        maven 'Maven'
     }
     stages{
         stage("Code Checkout"){
             steps{
-                echo "========Code Checkout========"
-                checkout([$class: 'GitSCM', branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'myGitCredentials', url: 'https://github.com/gthborg/hello-world-war.git']]])
+                echo "========executing Code Checkout========"
+                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'myGitCredentials', url: 'https://github.com/gthborg/hello-world-war.git']])
             }
             post{
-                always{
-                    echo "========always========"
-                }
                 success{
-                    echo "========A executed successfully========"
+                    echo "========Code Checkout completed========"
                 }
                 failure{
-                    echo "========A execution failed========"
+                    echo "========Code Checkout failed========"
                 }
             }
         }
-        stage("Build"){
+        stage("Execute Shell"){
             steps{
-                echo "========build========"
-                sh 'mvn -s settings.xml clean install deploy '
+                echo "========execute Shell========"
+                sh 'echo "HELLO world"'                
             }
             post{
-                always{
-                    echo "========always========"
-                }
                 success{
-                    echo "========A executed successfully========"
-                    archiveArtifacts artifacts: 'target/*.war', followSymlinks: false
-                    build 'Hello-world-Deployment-pipeline'
+                    echo "========Shell command completed========"
                 }
                 failure{
-                    echo "========A execution failed========"
+                    echo "========shell command failed========"
+                }
+            }
+        }
+        stage("Build application"){
+            steps{
+                echo "========Build========"
+                sh 'mvn clean install'                
+            }
+            post{
+                success{
+                    echo "========Build completed========"
+                }
+                failure{
+                    echo "========Build failed========"
+                }
+            }
+        }
+        /*stage("Upload artifact "){
+            steps{
+                echo "========Build========"
+                sh 'mvn -s settings.xml deploy'                
+            }
+            post{
+                success{
+                    echo "========Build completed========"
+                }
+                failure{
+                    echo "========Build failed========"
+                }
+            }
+        }*/
+        stage("Execute SonarScan"){
+            steps {
+                script { 
+                    //def scannerHome = tool name: 'mySonar';
+                    withSonarQubeEnv("mySonar") {
+                        sh "${tool("mySonarScanner")}/bin/sonar-scanner \
+                        -Dsonar.projectKey=hello-world-war \
+                        -Dsonar.sources=. \
+                        -Dsonar.java.binaries=target \
+                        -Dsonar.host.url=http://172.31.6.11:9000 \
+                        -Dsonar.login=sqa_c2e90fe5764b420ac7ce57f08193b6cfe57dcb73"
+                    }
+               }
+            }
+            post{
+                success{
+                    echo "========Build completed========"
+                }
+                failure{
+                    echo "========Build failed========"
                 }
             }
         }
@@ -47,6 +94,7 @@ pipeline{
         }
         success{
             echo "========pipeline executed successfully ========"
+            archiveArtifacts artifacts: 'target/*.war', followSymlinks: false
         }
         failure{
             echo "========pipeline execution failed========"
